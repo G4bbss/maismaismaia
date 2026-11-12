@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendamento - Maia</title>
+    <link rel="icon" href="img/maiaFavicon.png" type="image/png">
+    <link rel="stylesheet" href="./style/agendamento.css">
+<script src="/js/acessibilidade.js"></script>
+<script src="/js/apoio-readonly.js"></script>
+
+</head>
+
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <a href="/dashboard" class="logo">Ma<span>i</span>a</a>
+             <nav>
+                <a href="./dashboard.html" class="ativo"> Painel</a>
+                <a href="./agendamento.html"> Agendamentos</a>
+                <a href="./diario.html"> Diário Emocional</a>
+                <a href="./mural.html"> Mural</a>
+                <a href="./profissionais.html"> Profissionais</a>
+                <a href="./redeapoio.html"> Rede de Apoio</a>
+                <a href="./telemedicina.html"> Telemedicina</a>
+                <a href="./perfil.html"> Meu Perfil</a>
+            </nav>
+        </aside>
+
+        <main class="conteudo">
+            <h1 class="titulo-pagina">Agendamento de Consultas</h1>
+
+            <div class="grid-agendamento">
+                <!-- Coluna da Esquerda: Calendário e Painel de Horários -->
+                <div>
+                    <div class="card-secao">
+                        <div class="header-calendario">
+                            <button class="btn-mes" id="btn-prev">&lt;</button>
+                            <h3 id="mes-ano-titulo" style="color: #7f5539;">---</h3>
+                            <button class="btn-mes" id="btn-next">&gt;</button>
+                        </div>
+                        <div id="calendario" class="grid-calendario"></div>
+                    </div>
+
+                    <div class="card-secao" id="painel-agenda" style="display:none;">
+                        <h3 id="titulo-data-selecionada" style="color: #7f5539; font-size: 15px; margin-bottom: 10px;">
+                            Selecione uma data no calendário</h3>
+
+                        <div id="formulario-horarios" style="display:none; flex-direction:column; margin-bottom: 16px;">
+                            <label style="font-size: 13px; font-weight: bold; color: #7f5539;">Escolha o Horário
+                                Disponível:</label>
+                            <div id="horarios-container" class="grid-horarios"></div>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 12px; font-weight: bold; color: #7f5539;">Compromissos nesta
+                                data:</label>
+                            <div id="lista-consultas-dia" style="margin-top: 8px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna da Direita: Formulário e Minhas Consultas -->
+                <div>
+                    <div class="card-secao">
+                        <h2>Agendar Nova Consulta</h2>
+                        <form id="form-agendamento">
+                            <div class="form-grupo">
+                                <label for="select-profissional">Profissional:</label>
+                                <select id="select-profissional" name="select-profissional" required>
+                                    <option value="">Selecione um profissional...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="select-modalidade">Modalidade de Atendimento:</label>
+                                <select id="select-modalidade" required>
+                                    <option value="">Selecione a modalidade...</option>
+                                    <option value="Presencial">Presencial</option>
+                                    <option value="Online">Online (Telemedicina)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="nome-paciente">Nome do Paciente:</label>
+                                <input type="text" id="nome-paciente" placeholder="Digite o nome completo" required>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="email-paciente">E-mail de Confirmação:</label>
+                                <input type="email" id="email-paciente" placeholder="seuemail@exemplo.com" required>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="tel-paciente">Telefone de Contato:</label>
+                                <input type="tel" id="tel-paciente" placeholder="(11) 98765-4321" maxlength="15"
+                                    required>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="obs-consulta">Observações:</label>
+                                <textarea id="obs-consulta" rows="3"
+                                    placeholder="Sintomas, preferências, etc."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn-submit" id="btnConfirmarAgendamento">Confirmar
+                                Agendamento</button>
+                        </form>
+                    </div>
+
+                    <div class="card-secao">
+                        <h2>Minhas Consultas Agendadas</h2>
+                        <div id="lista-consultas-geral">
+                            <p style="font-size: 13px; color: gray;">Carregando suas consultas...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="modalDetalhes" class="modal">
+        <div class="modal-conteudo">
+            <span class="fechar-modal" onclick="fecharModal()">&times;</span>
+            <h3 style="color: #7f5539; margin-bottom: 12px;">Detalhes da Consulta</h3>
+            <div id="conteudoModal"></div>
+        </div>
+    </div>
+
+    <!-- Modal de Cancelamento -->
+    <div id="modalCancelamento" class="modal">
+        <div class="modal-conteudo">
+            <span class="fechar-modal" onclick="fecharModalCancelamento()">&times;</span>
+            <h3 style="color: #d9534f; margin-bottom: 12px;">Desmarcar Consulta</h3>
+            <input type="hidden" id="cancelar-id-agendamento">
+
+            <div class="form-grupo">
+                <label for="email-confirmacao-cancelamento">Confirme seu E-mail:</label>
+                <input type="email" id="email-confirmacao-cancelamento" placeholder="Seu e-mail de cadastro" required>
+            </div>
+
+            <div class="form-grupo">
+                <label for="motivo-cancelamento">Motivo do Cancelamento:</label>
+                <textarea id="motivo-cancelamento" rows="3" placeholder="Motivo pelo qual está desmarcando"
+                    required></textarea>
+            </div>
+
+            <button type="button" class="btn-submit" onclick="confirmarCancelamento()"
+                style="background-color: #d9534f;">Confirmar Cancelamento</button>
+        </div>
+    </div>
+
+    <script src="js/agendamento.js"></script>
+
+
+</body>
+
+</html>

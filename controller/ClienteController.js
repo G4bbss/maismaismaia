@@ -1,0 +1,895 @@
+import bcrypt from "bcryptjs";
+import pool from "../config/banco.js";
+import { OAuth2Client } from "google-auth-library";
+import nodemailer from "nodemailer";
+
+const GOOGLE_CLIENT_ID = "910310455755-ecuctmqtfutt440jbjebr97jdj1pgkk5.apps.googleusercontent.com";
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+const EMAIL_SISTEMA = "central.equipemaia@gmail.com";
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: EMAIL_SISTEMA,
+    pass: "psok rogj tgaq wtuu"
+  },
+  tls: {
+    rejectUnauthorized: false,
+    minVersion: "TLSv1.2"
+  }
+});
+
+const emailStyle = `
+    font-family: sans-serif;
+    color: #3b2a25;
+    border: 1px solid #eee;
+    padding: 25px;
+    border-radius: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+    background-color: #fdfdfd;
+`;
+
+function gerarChaveAcesso10() {
+  return Math.floor(1000000000 + Math.random() * 9000000000).toString();
+}
+
+export const cadastrar = async (req, res) => {
+  try {
+    const { Nome, Email, Senha, DataNascimento, Fase, SemanasGestacao, Telefone, Termos, Foto } = req.body;
+
+    if (!Nome || !Email || !Senha) {
+      return res.status(400).send("Nome, e-mail e senha são obrigatórios");
+    }
+
+    const [existentes] = await pool.execute("SELECT id_usuario FROM usuario WHERE email = ?", [Email]);
+
+    if (existentes.length > 0) {
+      return res.status(400).send("E-mail já cadastrado");
+    }
+
+    const senhaCriptografada = await bcrypt.hash(Senha, 10);
+    const codigoVerificacao = Math.floor(100000 + Math.random() * 900000);
+
+    await pool.execute(
+      `INSERT INTO usuario
+        (paciente_nome, email, senha, data_nascimento, fase, semanas_gestacao, paciente_telefone, termos_aceitos, codigo_verificacao, foto)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Nome,
+        Email,
+        senhaCriptografada,
+        DataNascimento || null,
+        Fase || null,
+        SemanasGestacao || null,
+        Telefone || null,
+        Termos ? 1 : 0,
+        codigoVerificacao,
+        Foto || null
+      ]
+    );
+
+    try {
+      await transporter.sendMail({
+        from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+        to: Email,
+        subject: "Seu Código de Verificação - Maia",
+        html: `
+          <div style="${emailStyle}">
+            <h2 style="color: #8c5a4d; margin-top: 0;">Bem-vinda à Maia!</h2>
+            <p>Olá, <b>${Nome}</b>! Use o código abaixo para validar seu acesso:</p>
+            <div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #8c5a4d;">${codigoVerificacao}</span>
+            </div>
+            <p style="font-size: 12px; color: #999;">Se você não solicitou este código, ignore este e-mail.</p>
+          </div>
+        `
+      });
+    } catch (erroEmail) {
+      console.error("⚠️ Falha ao enviar e-mail de cadastro:", erroEmail.message);
+    }
+
+    return res.redirect(`/verificacao?email=${encodeURIComponent(Email)}`);
+
+  } catch (erro) {
+    console.error("Erro ao cadastrar usuário:", erro.message);
+    return res.status(500).send("Erro ao cadastrar usuário");
+  }
+};
+
+export const verificarCodigo = async (req, res) => {
+  try {
+    const { email, codigoDigitado } = req.body;
+
+    const [linhas] = await pool.execute(
+      "SELECT * FROM usuario WHERE email = ? AND codigo_verificacao = ?",
+      [email, codigoDigitado]
+    );
+
+    if (linhas.length > 0) {
+      req.session.usuarioEmail = email;
+      return res.json({ ok: true, mensagem: "E-mail verificado com sucesso!" });
+    } else {
+      return res.status(401).json({ ok: false, erro: "Código de verificação inválido!" });
+    }
+  } catch (erro) {
+    console.error("Erro ao verificar código:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro ao verificar código." });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ erro: "Token do Google não enviado." });
+    }
+
+    let email, nome, foto;
+
+    if (typeof token === 'string' && token.split('.').length === 3) {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      email = payload.email;
+      nome = payload.name;
+      foto = payload.picture;
+    } else {
+      const googleRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const payload = await googleRes.json();
+      email = payload.email;
+      nome = payload.name;
+      foto = payload.picture;
+    }
+
+    const [linhas] = await pool.execute("SELECT * FROM usuario WHERE email = ?", [email]);
+
+    if (linhas.length > 0) {
+      req.session.usuarioEmail = email;
+      return res.json({
+        ok: true,
+        cadastrado: true,
+        redirect: "/dashboard"
+      });
+    } else {
+      return res.json({
+        ok: true,
+        cadastrado: false,
+        redirect: "/cadastro",
+        nome: nome,
+        email: email,
+        foto: foto
+      });
+    }
+
+  } catch (erro) {
+    console.error("❌ Erro no Google Auth:", erro.message);
+    return res.status(403).json({ erro: "Falha na autenticação do Google." });
+  }
+};
+
+
+
+
+
+
+export const login = async (req, res) => {
+  try {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+      return res.status(400).json({ ok: false, erro: "E-mail e senha são obrigatórios." });
+    }
+
+    // 1. Verifica se o e-mail pertence a um Profissional
+    const [profissional] = await pool.execute(
+      "SELECT * FROM profissional WHERE email = ?",
+      [email]
+    );
+
+    if (profissional.length > 0) {
+      // (Se profissional tiver verificação ou login direto)
+      req.session.usuarioEmail = email;
+      req.session.tipoUsuario = "profissional";
+
+      return res.json({
+        ok: true,
+        tipo: "profissional",
+        redirect: "/painel-profissional"
+      });
+    }
+
+    // 2. Busca na tabela de Usuário (Paciente)
+    const [usuarios] = await pool.execute(
+      "SELECT * FROM usuario WHERE email = ?",
+      [email]
+    );
+
+    if (usuarios.length === 0) {
+      return res.status(401).json({ ok: false, erro: "E-mail ou senha inválidos." });
+    }
+
+    const usuario = usuarios[0];
+
+    // 3. Valida a senha do usuário com bcrypt
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) {
+      return res.status(401).json({ ok: false, erro: "E-mail ou senha inválidos." });
+    }
+
+    // 4. GERAR CÓDIGO 2FA E ENVIAR POR E-MAIL
+    const codigo2FA = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await pool.execute(
+      "UPDATE usuario SET codigo_verificacao = ? WHERE id_usuario = ?",
+      [codigo2FA, usuario.id_usuario]
+    );
+
+    try {
+      await transporter.sendMail({
+        from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+        to: email,
+        subject: "Seu Código de Acesso (2FA) - Maia",
+        html: `
+          <div style="${emailStyle}">
+            <h2 style="color: #8c5a4d; margin-top: 0;">Código de Autenticação</h2>
+            <p>Olá, <b>${usuario.paciente_nome || "Usuária"}</b>!</p>
+            <p>Utilize o código abaixo para concluir seu login na plataforma Maia:</p>
+            <div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #8c5a4d;">${codigo2FA}</span>
+            </div>
+            <p style="font-size: 12px; color: #999;">Se você não tentou realizar o login, altere sua senha imediatamente.</p>
+          </div>
+        `
+      });
+    } catch (erroEmail) {
+      console.error("⚠️ Falha ao enviar e-mail de 2FA:", erroEmail.message);
+    }
+
+    // Retorna informando que necessita da etapa de verificação
+    return res.json({
+      ok: true,
+      requer2FA: true,
+      redirect: `/verificacao?email=${encodeURIComponent(email)}`
+    });
+
+  } catch (erro) {
+    console.error("Erro no login:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro interno ao realizar login." });
+  }
+};
+
+
+
+
+export const logout = (req, res) => {
+  req.session.destroy(() => {
+    return res.redirect("/index.html");
+  });
+};
+
+export const meusDados = async (req, res) => {  
+  try {
+    const [usuarios] = await pool.execute(
+      `SELECT 
+         id_usuario, 
+         paciente_nome AS Nome, 
+         email AS Email, 
+         data_nascimento AS DataNascimento,
+         fase AS Fase, 
+         semanas_gestacao AS SemanasGestacao, 
+         paciente_telefone AS Telefone,
+         status_risco AS StatusRisco, 
+         foto AS Foto
+       FROM usuario
+       WHERE email = ?`,
+      [req.session.usuarioEmail]
+    );
+
+    const usuario = usuarios[0];
+    if (!usuario) return res.status(404).json({ erro: "Usuário não encontrado" });
+
+    const [contatos] = await pool.execute(
+      `SELECT id_contato, nome, email, telefone, parentesco
+       FROM contato_apoio
+       WHERE USUARIO_id_usuario = ?`,
+      [usuario.id_usuario]
+    );
+
+    usuario.contatos = contatos;
+    return res.json(usuario);
+
+  } catch (erro) {
+    console.error("Erro ao buscar dados do usuário:", erro.message);
+    return res.status(500).json({ erro: "Erro ao buscar dados do usuário" });
+  }
+};
+
+export const paginaPerfil = async (req, res) => {
+  try {
+    const [linhas] = await pool.execute(
+      `SELECT 
+         id_usuario, 
+         paciente_nome AS Nome, 
+         email AS Email, 
+         data_nascimento AS DataNascimento,
+         fase AS Fase, 
+         semanas_gestacao AS SemanasGestacao, 
+         paciente_telefone AS Telefone,
+         status_risco AS StatusRisco, 
+         foto AS Foto
+       FROM usuario
+       WHERE email = ?`,
+      [req.session.usuarioEmail]
+    );
+
+    const usuario = linhas[0];
+    if (!usuario) return res.redirect("/login");
+
+    return res.render("perfil", { usuario });
+
+  } catch (erro) {
+    console.error("Erro ao carregar página de perfil:", erro.message);
+    return res.status(500).send("Erro ao carregar perfil");
+  }
+};
+
+export const atualizarPerfil = async (req, res) => {
+  try {
+    const { Nome, Telefone, Fase, SemanasGestacao, contatos } = req.body;
+    const emailUsuario = req.session.usuarioEmail;
+
+    if (!emailUsuario) {
+      return res.status(401).json({ ok: false, erro: "Sessão expirada. Faça login novamente." });
+    }
+
+    const [usuarios] = await pool.execute(
+      "SELECT id_usuario, paciente_nome FROM usuario WHERE email = ?",
+      [emailUsuario]
+    );
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({ ok: false, erro: "Usuário não encontrado." });
+    }
+
+    const idUsuario = usuarios[0].id_usuario;
+    const nomePaciente = Nome || usuarios[0].paciente_nome || "Paciente Maia";
+
+    await pool.execute(
+      `UPDATE usuario
+          SET paciente_nome = COALESCE(?, paciente_nome),
+              paciente_telefone = COALESCE(?, paciente_telefone),
+              fase = COALESCE(?, fase),
+              semanas_gestacao = COALESCE(?, semanas_gestacao)
+        WHERE id_usuario = ?`,
+      [
+        Nome || null,
+        Telefone || null,
+        Fase || null,
+        SemanasGestacao === undefined || SemanasGestacao === "" ? null : SemanasGestacao,
+        idUsuario
+      ]
+    );
+
+    if (Array.isArray(contatos)) {
+      const idsManter = contatos.map(c => c.id_contato).filter(Boolean);
+      if (idsManter.length > 0) {
+        const placeholders = idsManter.map(() => '?').join(',');
+        await pool.execute(
+          `DELETE FROM contato_apoio WHERE USUARIO_id_usuario = ? AND id_contato NOT IN (${placeholders})`,
+          [idUsuario, ...idsManter]
+        );
+      } else {
+        await pool.execute("DELETE FROM contato_apoio WHERE USUARIO_id_usuario = ?", [idUsuario]);
+      }
+
+      for (const c of contatos) {
+        const nomeFinal = c.nome || "";
+        const emailFinal = c.email || "";
+        const telFinal = c.telefone || "";
+        const parentescoFinal = c.parentesco || "Não informado";
+
+        if (!nomeFinal && !emailFinal && !telFinal) continue;
+
+        if (c.id_contato) {
+          await pool.execute(
+            `UPDATE contato_apoio
+                SET nome = ?, telefone = ?, email = ?, parentesco = ?
+              WHERE id_contato = ? AND USUARIO_id_usuario = ?`,
+            [nomeFinal, telFinal, emailFinal, parentescoFinal, c.id_contato, idUsuario]
+          );
+        } else {
+          const chaveAcesso = gerarChaveAcesso10();
+
+          const [insertRes] = await pool.execute(
+            `INSERT INTO contato_apoio (USUARIO_id_usuario, nome, telefone, email, parentesco, chave_acesso)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [idUsuario, nomeFinal, telFinal, emailFinal, parentescoFinal, chaveAcesso]
+          );
+
+          let chaveParaEnvio = chaveAcesso;
+          const [chaveQuery] = await pool.execute(
+            "SELECT chave_acesso FROM contato_apoio WHERE id_contato = ?",
+            [insertRes.insertId]
+          );
+          if (chaveQuery.length > 0 && chaveQuery[0].chave_acesso) {
+            chaveParaEnvio = chaveQuery[0].chave_acesso;
+          }
+
+          if (emailFinal && emailFinal.trim() !== "") {
+            try {
+              await transporter.sendMail({
+                from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+                to: emailFinal,
+                subject: `Você foi cadastrado(a) como rede de apoio de ${nomePaciente} - Maia`,
+                html: `
+                  <div style="${emailStyle}">
+                    <h2 style="color: #8c5a4d; margin-top: 0;">Rede de Apoio Maia</h2>
+                    <p>Olá, <b>${nomeFinal || "Contato de Confiança"}</b>!</p>
+                    <p><b>${nomePaciente}</b> cadastrou você como sua <b>Rede de Apoio</b> na plataforma <b>Maia</b>.</p>
+                    <p>Sua chave de acesso exclusiva é:</p>
+                    <div style="background-color: #f9f9f9; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                      <span style="font-size: 30px; font-weight: bold; letter-spacing: 5px; color: #8c5a4d;">${chaveParaEnvio}</span>
+                    </div>
+                    <p style="font-size: 12px; color: #999;">Guarde este código em local seguro para acessar a área da rede de apoio na plataforma.</p>
+                  </div>
+                `
+              });
+              console.log(`📧 E-mail com chave enviado para o contato: ${emailFinal}`);
+            } catch (erroEmail) {
+              console.error("⚠️ Erro ao enviar e-mail para contato de apoio:", erroEmail.message);
+            }
+          }
+        }
+      }
+    }
+
+    return res.json({ ok: true, mensagem: "Perfil e contatos atualizados com sucesso!" });
+
+  } catch (erro) {
+    console.error("Erro ao atualizar perfil:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro interno ao atualizar perfil." });
+  }
+};
+
+export const solicitarRecuperacaoSenha = async (req, res) => {
+  try {
+    const { Email } = req.body;
+
+    if (!Email) {
+      return res.status(400).json({ ok: false, erro: "E-mail é obrigatório." });
+    }
+
+    const [linhas] = await pool.execute("SELECT * FROM usuario WHERE email = ?", [Email]);
+
+    if (linhas.length === 0) {
+      return res.status(404).json({ ok: false, erro: "E-mail não cadastrado no sistema." });
+    }
+
+    const codigoRedefinicao = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await pool.execute("UPDATE usuario SET codigo_verificacao = ? WHERE email = ?", [codigoRedefinicao, Email]);
+
+    await transporter.sendMail({
+      from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+      to: Email,
+      subject: "Redefinição de Senha - Maia",
+      html: `
+        <div style="${emailStyle}">
+          <h2 style="color: #8c5a4d; margin-top: 0;">Recuperação de Senha</h2>
+          <p>Você solicitou a redefinição de sua senha na plataforma <b>Maia</b>.</p>
+          <p>Seu código de verificação é:</p>
+          <div style="background-color: #f9f9f9; padding: 15px; text-align: center; border-radius: 8px; margin: 20px 0;">
+            <span style="font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #8c5a4d;">${codigoRedefinicao}</span>
+          </div>
+          <p style="font-size: 12px; color: #999;">Se você não solicitou essa alteração, ignore esta mensagem.</p>
+        </div>
+      `
+    });
+
+    return res.json({ ok: true, mensagem: "E-mail de redefinição enviado com sucesso!" });
+
+  } catch (erro) {
+    console.error("Erro ao solicitar recuperação de senha:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro ao processar solicitação." });
+  }
+};
+
+export const redefinirSenha = async (req, res) => {
+  try {
+    const { Email, Codigo, NovaSenha } = req.body;
+
+    if (!Email || !Codigo || !NovaSenha) {
+      return res.status(400).json({ ok: false, erro: "Todos os campos são obrigatórios." });
+    }
+
+    const [linhas] = await pool.execute(
+      "SELECT * FROM usuario WHERE email = ? AND codigo_verificacao = ?",
+      [Email, Codigo]
+    );
+
+    if (linhas.length === 0) {
+      return res.status(400).json({ ok: false, erro: "Código inválido ou expirado." });
+    }
+
+    const novaSenhaCriptografada = await bcrypt.hash(NovaSenha, 10);
+
+    // 1. Atualiza a senha no banco de dados e limpa o código de verificação
+    await pool.execute(
+      "UPDATE usuario SET senha = ?, codigo_verificacao = NULL WHERE email = ?",
+      [novaSenhaCriptografada, Email]
+    );
+
+    // 2. Envia o e-mail de notificação de segurança reutilizando o transporter do arquivo
+    try {
+      await transporter.sendMail({
+        from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+        to: Email,
+        subject: "Sua senha foi alterada com sucesso - Maia",
+        html: `
+          <div style="${emailStyle}">
+            <h2 style="color: #8c5a4d; margin-top: 0;">Senha Alterada com Sucesso</h2>
+            <p>Olá!</p>
+            <p>Confirmamos que a senha da sua conta na plataforma <b>Maia</b> foi alterada recentemente.</p>
+            <div style="background-color: #f9f9f9; padding: 12px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8c5a4d;">
+              <p style="margin: 0; font-size: 13px; color: #3b2a25;">
+                <b>Data e Hora:</b> ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+              </p>
+            </div>
+            <p style="font-size: 12px; color: #c62828;">
+              <b>Atenção:</b> Se você não realizou essa alteração, entre em contato com o suporte imediatamente para proteger sua conta.
+            </p>
+          </div>
+        `
+      });
+      console.log(`📧 E-mail de confirmação de alteração de senha enviado para: ${Email}`);
+    } catch (erroEmail) {
+      console.error("⚠️ Falha ao enviar e-mail de aviso de alteração de senha:", erroEmail.message);
+    }
+
+    return res.json({ ok: true, mensagem: "Senha alterada com sucesso! Você já pode fazer login." });
+
+  } catch (erro) {
+    console.error("Erro ao redefinir senha:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro ao redefinir senha." });
+  }
+};
+
+export const agendarConsulta = async (req, res) => {
+  try {
+    const {
+      email,
+      usuario_email,
+      email_cliente,
+      paciente_email,
+      id_profissional,
+      profissional_id,
+      profissional_nome,
+      profissional,
+      data_consulta,
+      data_agendamento,
+      data,
+      data_formatada,
+      horario,
+      hora,
+      paciente_nome,
+      nome_paciente,
+      paciente,
+      nome,
+      telefone,
+      telefone_paciente,
+      observacoes,
+      observacao,
+      endereco_profissional,
+      endereco,
+      tipo_atendimento
+    } = req.body;
+
+    const emailFinal = email || usuario_email || email_cliente || paciente_email || req.session?.usuarioEmail;
+    let dataInput = data_agendamento || data_consulta || data;
+    const horarioInput = horario || hora;
+
+    if (!emailFinal || !dataInput || !horarioInput) {
+      return res.status(400).json({ ok: false, erro: "E-mail, data e horário são obrigatórios." });
+    }
+
+    const [usuarios] = await pool.execute(
+      "SELECT id_usuario, paciente_nome, paciente_telefone FROM usuario WHERE email = ?",
+      [emailFinal]
+    );
+
+    const usuarioBd = usuarios.length > 0 ? usuarios[0] : {};
+    const idUsuario = usuarioBd.id_usuario || null;
+
+    const nomeFinal = nome_paciente || paciente_nome || paciente || nome || usuarioBd.paciente_nome || "Paciente";
+    const rawTelefone = telefone_paciente || telefone || usuarioBd.paciente_telefone || "";
+
+    const telApenasNumeros = String(rawTelefone).replace(/\D/g, "");
+
+    if (telApenasNumeros.length !== 11) {
+      return res.status(400).json({
+        ok: false,
+        erro: "O telefone deve ter obrigatoriamente 11 dígitos com o DDD (exemplo: 11987654321)."
+      });
+    }
+
+    const telFormatado = `(${telApenasNumeros.substring(0, 2)}) ${telApenasNumeros.substring(2, 7)}-${telApenasNumeros.substring(7)}`;
+
+    const obsFinal = observacoes || observacao || "Nenhuma.";
+    const nomeProf = profissional_nome || profissional || "Dra. Ana Beatriz Mendes (Psicologia Perinatal)";
+    const enderecoProf = endereco_profissional || endereco || "Clínica Maia";
+
+    let dataBanco = dataInput;
+    if (typeof dataBanco === "string" && dataBanco.includes("/")) {
+      const partes = dataBanco.split("/");
+      if (partes.length === 3) {
+        dataBanco = `${partes[2]}-${partes[1].padStart(2, "0")}-${partes[0].padStart(2, "0")}`;
+      }
+    }
+
+    let dataBR = data_formatada;
+    if (!dataBR && typeof dataBanco === "string" && dataBanco.includes("-")) {
+      dataBR = dataBanco.split("-").reverse().join("/");
+    } else if (!dataBR) {
+      dataBR = dataInput;
+    }
+
+    let horarioFinal = horarioInput;
+    if (typeof horarioFinal === "string" && horarioFinal.length === 5) {
+      horarioFinal = `${horarioFinal}:00`;
+    }
+
+    const idProf = id_profissional || profissional_id || 1;
+
+    const [resultado] = await pool.execute(
+      `INSERT INTO agendamento 
+        (USUARIO_id_usuario, PROFISSIONAL_id_profissional, data_agendamento, horario, tipo_atendimento, status, observacoes, email_paciente, nome_paciente, telefone_paciente, endereco_profissional)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        idUsuario,
+        Number(idProf),
+        dataBanco,
+        horarioFinal,
+        tipo_atendimento || "Presencial",
+        "Agendado",
+        obsFinal,
+        emailFinal,
+        nomeFinal,
+        telFormatado,
+        enderecoProf
+      ]
+    );
+
+    try {
+      await transporter.sendMail({
+        from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+        to: emailFinal,
+        subject: "Confirmação de Agendamento - Maia",
+        html: `
+          <div style="${emailStyle}">
+            <h2 style="color: #8c5a4d; margin-top: 0;">Agendamento Confirmado!</h2>
+            <p>Olá, <b>${nomeFinal}</b>!</p>
+            <p>Sua consulta foi agendada com sucesso. Confira os detalhes abaixo:</p>
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <p style="margin: 5px 0;"><b>Paciente:</b> ${nomeFinal}</p>
+              <p style="margin: 5px 0;"><b>E-mail:</b> ${emailFinal}</p>
+              <p style="margin: 5px 0;"><b>Contato:</b> ${telFormatado}</p>
+              <p style="margin: 5px 0;"><b>Profissional:</b> ${nomeProf}</p>
+              <p style="margin: 5px 0;"><b>Data:</b> ${dataBR}</p>
+              <p style="margin: 5px 0;"><b>Horário:</b> ${horarioInput.toString().substring(0, 5)}</p>
+              <p style="margin: 5px 0;"><b>Endereço:</b> ${enderecoProf}</p>
+              <p style="margin: 5px 0;"><b>Observações:</b> ${obsFinal}</p>
+            </div>
+            <p style="font-size: 12px; color: #999;">Caso precise cancelar ou remarcar, acesse a aba Agendamentos na plataforma Maia.</p>
+          </div>
+        `
+      });
+    } catch (erroEmail) {
+      console.error("⚠️ Falha ao enviar e-mail de agendamento:", erroEmail.message);
+    }
+
+    return res.status(201).json({
+      ok: true,
+      sucesso: true,
+      mensagem: "Consulta agendada com sucesso!",
+      id_agendamento: resultado.insertId
+    });
+
+  } catch (erro) {
+    console.error("Erro SQL ao agendar consulta:", erro);
+    return res.status(500).json({ ok: false, erro: erro.sqlMessage || erro.message });
+  }
+};
+
+export const meusAgendamentos = async (req, res) => {
+  try {
+    const emailParam = req.params.email || req.query.email || req.session?.usuarioEmail;
+
+    if (!emailParam) {
+      return res.json([]);
+    }
+
+    const [consultas] = await pool.execute(
+      `SELECT 
+        a.id_agendamento,
+        a.USUARIO_id_usuario,
+        a.PROFISSIONAL_id_profissional,
+        profissional_nome,
+        DATE_FORMAT(a.data_agendamento, '%Y-%m-%d') AS data_agendamento,
+        DATE_FORMAT(a.data_agendamento, '%Y-%m-%d') AS data_consulta,
+        DATE_FORMAT(a.data_agendamento, '%d/%m/%Y') AS data_formatada,
+        TIME_FORMAT(a.horario, '%H:%i') AS horario,
+        a.tipo_atendimento,
+        COALESCE(a.status, 'Agendado') AS status,
+        COALESCE(a.observacoes, 'Nenhuma.') AS observacoes,
+        COALESCE(a.email_paciente, u.email) AS email_paciente,
+        COALESCE(a.email_paciente, u.email) AS email,
+        COALESCE(a.nome_paciente, u.paciente_nome, 'Paciente') AS nome_paciente,
+        COALESCE(a.nome_paciente, u.paciente_nome, 'Paciente') AS paciente_nome,
+        COALESCE(a.telefone_paciente, u.paciente_telefone, 'Não informado') AS telefone_paciente,
+        COALESCE(a.telefone_paciente, u.paciente_telefone, 'Não informado') AS telefone,
+        COALESCE(a.endereco_profissional, 'Clínica Maia') AS endereco_profissional,
+        COALESCE(a.endereco_profissional, 'Clínica Maia') AS endereco
+        FROM agendamento a
+        LEFT JOIN usuario u ON a.USUARIO_id_usuario = u.id_usuario OR a.email_paciente = u.email
+        LEFT JOIN profissional p ON a.PROFISSIONAL_id_profissional = p.id_profissional
+        WHERE tipo_atendimento = 'online' AND a.email_paciente = ? 
+        ORDER BY a.data_agendamento ASC, a.horario ASC`,
+      [emailParam]
+    );
+
+    return res.json(consultas);
+
+  } catch (erro) {
+    console.error("Erro ao buscar agendamentos:", erro.message);
+    return res.status(500).json({ erro: "Erro ao buscar agendamentos." });
+  }
+};
+
+export const cancelarAgendamento = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const idAgendamento = body.id_agendamento || body.id || body.idAgendamento;
+
+    if (!idAgendamento) {
+      return res.status(400).json({ ok: false, erro: "ID do agendamento é obrigatório." });
+    }
+
+    const [agendamentos] = await pool.execute(
+      `SELECT 
+        a.id_agendamento,
+        a.email_paciente,
+        a.nome_paciente,
+        DATE_FORMAT(a.data_agendamento, '%d/%m/%Y') AS data_formatada,
+        TIME_FORMAT(a.horario, '%H:%i') AS horario_formatado,
+        a.endereco_profissional,
+        a.observacoes
+        FROM agendamento a
+        WHERE a.id_agendamento = ?`,
+      [idAgendamento]
+    );
+
+    if (agendamentos.length === 0) {
+      return res.status(404).json({ ok: false, erro: "Agendamento não encontrado no banco de dados." });
+    }
+
+    const dadosConsulta = agendamentos[0];
+
+    const emailDestino = body.email || dadosConsulta.email_paciente;
+    const nomePaciente = body.paciente_nome || dadosConsulta.nome_paciente || "Paciente";
+    const dataConsulta = body.data_formatada || dadosConsulta.data_formatada || "Data não informada";
+    const horaConsulta = body.horario || dadosConsulta.horario_formatado || "Horário não informado";
+    const nomeProfissional = body.profissional_nome || body.profissional || "Dra. Ana Beatriz Mendes (Psicologia Perinatal)";
+    const motivoCancelamento = body.motivo || "Solicitado via plataforma";
+
+    if (!emailDestino) {
+      return res.status(400).json({ ok: false, erro: "E-mail do paciente não encontrado." });
+    }
+
+    await pool.execute("DELETE FROM agendamento WHERE id_agendamento = ?", [idAgendamento]);
+
+    await transporter.sendMail({
+      from: `"Equipe Maia" <${EMAIL_SISTEMA}>`,
+      to: emailDestino,
+      subject: "Cancelamento de Agendamento - Maia",
+      html: `
+        <div style="${emailStyle}">
+          <h2 style="color: #c62828; margin-top: 0;">Consulta Cancelada</h2>
+          <p>Olá, <b>${nomePaciente}</b>!</p>
+          <p>Confirmamos o cancelamento do seu agendamento conforme solicitado.</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <p style="margin: 5px 0;"><b>Profissional:</b> ${nomeProfissional}</p>
+            <p style="margin: 5px 0;"><b>Data da Consulta:</b> ${dataConsulta}</p>
+            <p style="margin: 5px 0;"><b>Horário:</b> ${horaConsulta}</p>
+            <p style="margin: 5px 0;"><b>Motivo:</b> ${motivoCancelamento}</p>
+          </div>
+          <p style="font-size: 12px; color: #999;">Se desejar realizar um novo agendamento, acesse nossa plataforma.</p>
+        </div>
+      `
+    });
+
+    return res.json({ ok: true, mensagem: "Consulta cancelada e e-mail enviado com sucesso!" });
+
+  } catch (erro) {
+    console.error("❌ ERRO NO CANCELAMENTO DE AGENDAMENTO:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro ao processar cancelamento: " + erro.message });
+  }
+};
+
+
+
+
+export async function removerContato(req, res) {
+  try {
+    const emailUsuario = req.session.usuarioEmail;
+    const { id } = req.params; // ID ou índice do contato enviado pela URL
+
+    // Exemplo de lógica (ajuste conforme seu banco de dados/Model):
+    // Se seus contatos tiverem _id:
+    // await ClienteModel.updateOne(
+    //   { Email: emailUsuario },
+    //   { $pull: { contatos: { _id: id } } }
+    // );
+
+    return res.status(200).json({ mensagem: "Contato removido com sucesso!" });
+  } catch (erro) {
+    console.error("Erro ao remover contato:", erro);
+    return res.status(500).json({ erro: "Erro ao remover contato." });
+  }
+}
+
+
+
+
+
+
+// ===================== Login do Contato de Apoio (Chave 10 dígitos) =====================
+export const loginContatoApoio = async (req, res) => {
+  try {
+    const { email, chaveAcesso } = req.body;
+
+    if (!email || !chaveAcesso) {
+      return res.status(400).json({ ok: false, erro: "E-mail e chave de acesso são obrigatórios." });
+    }
+
+    // Busca o contato de apoio ativo correspondente ao e-mail e à chave
+    const [contatos] = await pool.execute(
+      `SELECT c.id_contato, c.nome, c.email, c.USUARIO_id_usuario, u.email AS usuario_email
+       FROM contato_apoio c
+       JOIN usuario u ON c.USUARIO_id_usuario = u.id_usuario
+       WHERE c.email = ? AND c.chave_acesso = ?`,
+      [email.trim(), chaveAcesso.trim()]
+    );
+
+    if (contatos.length === 0) {
+      return res.status(401).json({ ok: false, erro: "E-mail ou chave de acesso inválidos." });
+    }
+
+    const contato = contatos[0];
+
+    // Guarda na sessão que quem está logado é um Contato de Apoio,
+    // mas vincula o e-mail do usuário principal para que ele veja os dados da mãe/paciente.
+    req.session.usuarioEmail = contato.usuario_email;
+    req.session.tipoUsuario = "contato_apoio";
+    req.session.contatoId = contato.id_contato;
+    req.session.contatoNome = contato.nome;
+    delete req.session.profissionalId;
+    delete req.session.redeApoioId;
+
+    return res.json({
+      ok: true,
+      tipo: "contato_apoio",
+      nome: contato.nome,
+      redirect: "/dashboard-contato-apoio.html" // ou a tela visual criada para ele
+    });
+
+  } catch (erro) {
+    console.error("Erro no login do Contato de Apoio:", erro.message);
+    return res.status(500).json({ ok: false, erro: "Erro ao autenticar contato de apoio." });
+  }
+};

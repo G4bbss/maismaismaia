@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Maia</title>
+    <link rel="icon" href="img/maiaFavicon.png" type="image/png">
+    <link rel="stylesheet" href="./style/dashboard.css">
+    <script src="/js/acessibilidade.js"></script>
+    <script src="/js/apoio-readonly.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <!-- ===================== SIDEBAR ===================== -->
+        <aside class="sidebar">
+            <a href="/dashboard" class="logo">Ma<span>i</span>a</a>
+            <nav>
+                <a href="./dashboard.html" class="ativo"> Painel</a>
+                <a href="./agendamento.html"> Agendamentos</a>
+                <a href="./diario.html"> Diário Emocional</a>
+                <a href="./mural.html"> Mural</a>
+                <a href="./profissionais.html"> Profissionais</a>
+                <a href="./redeapoio.html"> Rede de Apoio</a>
+                <a href="./telemedicina.html"> Telemedicina</a>
+                <a href="./perfil.html"> Meu Perfil</a>
+            </nav>
+            <span class="rodape-sidebar">© 2026 Maia</span>
+        </aside>
+
+        <!-- ===================== BARRA LATERAL DE ACESSIBILIDADE ===================== -->
+        <div class="barra-acessibilidade">
+            <div style="position: relative;">
+                <button class="btn-acessibilidade" onclick="toggleMenuTema()" title="Aparência e Contraste">
+                    🌓
+                </button>
+                <div id="painelTema" class="painel-ajuste-tema">
+
+                    <select id="selectTema" onchange="mudarTema(this.value)">
+                        <option value="claro">Claro</option>
+                        <option value="escuro">Escuro</option>
+                        <option value="alto-contraste">Alto Contraste</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-acessibilidade" onclick="iniciarChatAssistente()" title="Abrir Chat com Camila">
+                🤖
+            </button>
+        </div>
+        <!-- ===================== WIDGET DA ASSISTENTE VIRTUAL ===================== -->
+        <div class="assistente-widget" id="widgetAssistente">
+            <div class="assistente-balao" id="balaoAssistente">
+                <h4>Olá! :)</h4>
+                <p>Sou a Camila, Assistente Virtual da plataforma Maia e estou aqui para te ajudar.</p>
+                <div class="assistente-acoes">
+                    <button class="btn-iniciar-chat" onclick="iniciarChatAssistente()">INICIAR CHAT</button>
+                    <button class="btn-fechar-balao" onclick="fecharBalaoAssistente()">Fechar</button>
+                </div>
+            </div>
+            <div class="assistente-avatar-box" onclick="iniciarChatAssistente()">
+                <button class="btn-fechar-total" title="Minimizar Assistente"
+                    onclick="fecharAssistenteTotal(event)">✕</button>
+                <img src="img/camila.png" alt="Camila Assistente Virtual"
+                    onerror="this.onerror=null; this.src='img/maiaFavicon.png';">
+            </div>
+        </div>
+
+        <!-- ===================== MINITELA DE CHAT FLUTUANTE ===================== -->
+        <div class="chat-modal-box" id="chatModal">
+            <div class="chat-modal-header">
+                <div class="chat-modal-user">
+                    <img src="img/camila.png" alt="Camila" onerror="this.onerror=null; this.src='img/maiaFavicon.png';">
+                    <div>
+                        <strong>Camila</strong>
+                        <span>Assistente Virtual Maia</span>
+                    </div>
+                </div>
+                <button class="chat-modal-close" onclick="fecharChatModal()" title="Fechar Chat">✕</button>
+            </div>
+            <div class="chat-modal-body" id="chatModalMessages">
+                <div class="mensagem-chat camila">
+                    Olá! Sou a Camila, sua assistente virtual. Como posso te ajudar hoje?
+                </div>
+            </div>
+            <div class="chat-modal-footer">
+                <input type="text" id="chatInput" placeholder="Digite sua mensagem..."
+                    onkeypress="tratarKeyInput(event)">
+                <button onclick="enviarMensagemChat()">Enviar</button>
+            </div>
+        </div>
+
+        <!-- ===================== CONTEÚDO PRINCIPAL ===================== -->
+        <main class="conteudo">
+            <div class="topbar">
+                <div class="saudacao">
+                    <h1 id="saudacaoNome">Olá! </h1>
+                    <p id="saudacaoFase">Carregando seu perfil...</p>
+                </div>
+
+                <div class="conta">
+                    <button class="conta-botao" id="botaoConta">
+                        <span class="avatar-mini" id="avatarMini">?</span>
+                        <span class="nome-mini" id="nomeMini">Minha conta</span>
+                        <span class="icone-engrenagem">⚙️</span>
+                    </button>
+                    <div class="conta-menu" id="menuConta">
+                        <a href="./perfil.html">✏️ Editar perfil</a>
+                        <button id="botaoSair">🚪 Sair</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-principal">
+                <!-- Check-in emocional -->
+                <div class="painel-card checkin">
+                    <h2>Como você está se sentindo hoje?</h2>
+                    <p>Um registro rápido já entra no seu diário emocional.</p>
+                    <div class="checkin-opcoes">
+                        <button type="button" data-humor="Tranquila">😌<span class="rotulo">Tranquila</span></button>
+                        <button type="button" data-humor="Cansada">😴<span class="rotulo">Cansada</span></button>
+                        <button type="button" data-humor="Ansiosa">😟<span class="rotulo">Ansiosa</span></button>
+                        <button type="button" data-humor="Triste">😢<span class="rotulo">Triste</span></button>
+                        <button type="button" data-humor="Feliz">🥰<span class="rotulo">Feliz</span></button>
+                    </div>
+                </div>
+
+                <!-- Calendário -->
+                <div class="painel-card">
+                    <div class="calendario-cabecalho">
+                        <button id="mesAnterior">‹</button>
+                        <h2 id="mesAtual">Mês</h2>
+                        <button id="mesSeguinte">›</button>
+                    </div>
+                    <div class="calendario-grade" id="grade"></div>
+                    <div class="lista-compromissos" id="listaCompromissos"></div>
+                </div>
+
+                <!-- Feed -->
+                <div class="painel-card feed">
+                    <h2>Novidades para você</h2>
+                    <div class="feed-lista">
+                        <div class="feed-item">
+                            <div class="feed-icone"></div>
+                            <div class="feed-texto">
+                                <strong>Consulta confirmada</strong>
+                                <span>Sua consulta com a Dra. Camila Rocha foi confirmada para esta semana.</span>
+                            </div>
+                        </div>
+                        <div class="feed-item">
+                            <div class="feed-icone"></div>
+                            <div class="feed-texto">
+                                <strong>Nova voluntária na sua região</strong>
+                                <span>Juliana Alves está disponível para acompanhamento noturno perto de você.</span>
+                            </div>
+                        </div>
+                        <div class="feed-item">
+                            <div class="feed-icone"></div>
+                            <div class="feed-texto">
+                                <strong>Dica da semana</strong>
+                                <span>Exercícios de assoalho pélvico: veja como começar com segurança.</span>
+                            </div>
+                        </div>
+                        <div class="feed-item">
+                            <div class="feed-icone"></div>
+                            <div class="feed-texto">
+                                <strong>Diário emocional</strong>
+                                <span>Você ainda não fez seu registro de hoje. Que tal reservar 2 minutos?</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===================== WIDGET VLIBRAS ===================== -->
+    <div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div class="vw-plugin-top-wrapper"></div>
+        </div>
+    </div>
+    <script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+    <script>
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+    </script>
+
+    <script src="./js/dashboard.js"></script>
+
+</body>
+
+</html>

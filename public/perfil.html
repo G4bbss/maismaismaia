@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - Maia</title>
+    <link rel="icon" href="img/maiaFavicon.png" type="image/png">
+    <link rel="stylesheet" href="./style/dashboard.css">
+    <link rel="stylesheet" href="./style/perfil.css">
+    <script src="/js/acessibilidade.js"></script>
+    <script src="/js/apoio-readonly.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <a href="./dashboard.html" class="logo">Ma<span>i</span>a</a>
+            <nav>
+                <a href="./dashboard.html" class="ativo"> Painel</a>
+                <a href="./agendamento.html"> Agendamentos</a>
+                <a href="./diario.html"> Diário Emocional</a>
+                <a href="./mural.html"> Mural</a>
+                <a href="./profissionais.html"> Profissionais</a>
+                <a href="./redeapoio.html"> Rede de Apoio</a>
+                <a href="./telemedicina.html"> Telemedicina</a>
+                <a href="./perfil.html"> Meu Perfil</a>
+            </nav>
+            <span class="rodape-sidebar">© 2026 Maia</span>
+        </aside>
+
+        <main class="conteudo">
+            <div class="container">
+                <div class="cartao">
+                    <div class="cabecalho-perfil">
+                        <div class="avatar-grande" id="avatarGrande">?</div>
+                        <div>
+                            <h2 id="nomeCabecalho">Meu perfil</h2>
+                            <p id="emailCabecalho">Carregando...</p>
+                        </div>
+                    </div>
+
+                    <form id="formPerfil">
+                        <label for="nome">Nome completo</label>
+                        <input type="text" id="nome" name="Nome" required>
+
+                        <label for="telefone">Telefone</label>
+                        <input type="tel" id="telefone" name="Telefone" placeholder="(XX) XXXXX-XXXX">
+
+                        <label for="fase">Fase</label>
+                        <select id="fase" name="Fase">
+                            <option value="gestante">Gestante</option>
+                            <option value="puerpera">Puérpera</option>
+                        </select>
+
+                        <label for="semanas">Semanas de gestação</label>
+                        <input type="number" id="semanas" name="SemanasGestacao" min="0" max="42">
+                        <span class="ajuda">Se você já não estiver mais gestante, pode deixar em branco.</span>
+
+                        <div class="secao-divisor">
+                            <h3>Contatos de Apoio</h3>
+                            <p class="ajuda-secao">Cadastre seus contatos de confiança. Cada novo contato receberá uma
+                                chave de acesso por e-mail.</p>
+                        </div>
+
+                        <div id="containerContatos"></div>
+
+                        <button type="button" id="btnAdicionarContato" class="btn-adicionar-contato">+ Adicionar contato
+                            de apoio</button>
+
+                        <input type="submit" value="Salvar alterações">
+
+                        <p class="mensagem sucesso" id="mensagemSucesso">Perfil e contatos atualizados com sucesso!</p>
+                        <p class="mensagem erro" id="mensagemErro">Não foi possível salvar. Tente novamente.</p>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="./js/perfil.js"></script>
+</body>
+
+</html>

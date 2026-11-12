@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rede de Apoio - Maia Care</title>
+    <link rel="icon" href="img/maiaFavicon.png" type="image/png">
+    <link rel="stylesheet" href="style/redeapoio.css">
+    <!-- CSS Leaflet (Mini Mapa) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="/js/acessibilidade.js"></script>
+
+</head>
+
+<body>
+    <div class="app">
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <a href="./dashboard.html" class="logo">Ma<span>i</span>a</a>
+            <nav>
+                <a href="./dashboard.html" class="ativo"> Painel</a>
+                <a href="./agendamento.html"> Agendamentos</a>
+                <a href="./diario.html"> Diário Emocional</a>
+                <a href="./mural.html"> Mural</a>
+                <a href="./profissionais.html"> Profissionais</a>
+                <a href="./redeapoio.html"> Rede de Apoio</a>
+                <a href="./telemedicina.html"> Telemedicina</a>
+                <a href="./perfil.html"> Meu Perfil</a>
+            </nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="conteudo">
+            <h1 class="titulo-pagina"> Rede de Apoio Comunitária</h1>
+
+            <div class="grid-agendamento">
+                <!-- FORMULÁRIO DE SOLICITAÇÃO -->
+                <div>
+                    <div class="card-secao">
+                        <h2> Agendar Apoio Presencial</h2>
+                        <form id="formSolicitacao">
+                            <div class="form-grupo">
+                                <label for="enderecoUsuaria">Seu Endereço Completo:</label>
+                                <input type="text" id="enderecoUsuaria"
+                                    placeholder="Digite seu endereço (ex: Rua das Flores, Centro, Campinas)" required>
+                            </div>
+                            <div class="aviso-proximidade" id="avisoProximidade"></div>
+
+                            <div class="form-grupo">
+                                <label for="selectVoluntaria">Voluntária Recomendada / Selecionada:</label>
+                                <select id="selectVoluntaria" required>
+                                    <option value="">Carregando voluntárias...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-linha-dupla">
+                                <div class="form-grupo">
+                                    <label for="selectDia">Dia Desejado:</label>
+                                    <select id="selectDia" required>
+                                        <option value="Segunda-feira">Segunda-feira</option>
+                                        <option value="Terça-feira">Terça-feira</option>
+                                        <option value="Quarta-feira">Quarta-feira</option>
+                                        <option value="Quinta-feira">Quinta-feira</option>
+                                        <option value="Sexta-feira">Sexta-feira</option>
+                                        <option value="Sábado">Sábado</option>
+                                        <option value="Domingo">Domingo</option>
+                                    </select>
+                                </div>
+                                <div class="form-grupo">
+                                    <label for="selectHora">Horário Disponível:</label>
+                                    <select id="selectHora" required>
+                                        <!-- Preenchido dinamicamente -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-grupo">
+                                <label for="txtMotivo">Motivo / Tipo de Ajuda:</label>
+                                <textarea id="txtMotivo" rows="3"
+                                    placeholder="Ex: Preciso de auxílio com compras e cuidados com o bebê."
+                                    required></textarea>
+                            </div>
+
+                            <button type="submit" class="btn-submit">Confirmar Agendamento</button>
+                        </form>
+                    </div>
+
+                    <div class="card-secao">
+                        <h2> Localização no Mapa</h2>
+                        <div id="mapaMini"></div>
+                    </div>
+                </div>
+
+                <!-- COLUNA DA DIREITA: CHAT APARTE E SOLICITAÇÕES EM ANDAMENTO -->
+                <div>
+                    <div class="card-secao">
+                        <h2>Atendimento & Comunicação</h2>
+
+                        <!-- BOTÕES DAS ABAS DE NAVEGAÇÃO -->
+                        <div class="aba-container">
+                            <button class="btn-aba ativa" id="btnAbaChatDireto" onclick="mudarAba('chatDireto')"> Chat
+                                Direto (Avulso)</button>
+                            <button class="btn-aba" id="btnAbaAndamento" onclick="mudarAba('andamento')"> Solicitação
+                                Ativa</button>
+                        </div>
+
+                        <!-- CONTEÚDO DA ABA 1: CHAT DIRETO APARTE -->
+                        <div id="conteudoAbaChatDireto">
+                            <div class="form-grupo" style="margin-bottom: 10px;">
+                                <label for="selectChatVoluntaria">Conversar com:</label>
+                                <select id="selectChatVoluntaria" onchange="iniciarChatAvulso(this.value)">
+                                    <!-- Preenchido via JS -->
+                                </select>
+                            </div>
+
+                            <div class="box-chatbot">
+                                <div class="chatbot-header">
+                                    <span id="chatDiretoTitulo"> Chat com Voluntária</span>
+                                    <span style="font-size: 11px;">● Online</span>
+                                </div>
+                                <div class="chatbot-mensagens" id="chatMsgsDireto">
+                                    <div class="balao-chat recebida">
+                                        Olá! Escolha uma voluntária para conversar abertamente e tirar suas dúvidas sem
+                                        precisar agendar.
+                                    </div>
+                                </div>
+                                <div class="chatbot-footer">
+                                    <input type="text" id="inputChatDireto" placeholder="Escreva sua mensagem...">
+                                    <button onclick="enviarMensagemAvulsa()">Enviar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CONTEÚDO DA ABA 2: SOLICITAÇÃO EM ANDAMENTO E CANCELAMENTO -->
+                        <div id="conteudoAbaAndamento" style="display: none;">
+                            <div id="containerAbaAndamento">
+                                <p style="font-size: 13px; color: #777;">Nenhuma solicitação presencial ativa no
+                                    momento. Preencha o formulário para agendar.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARDS DAS VOLUNTÁRIAS -->
+            <div class="card-secao" style="margin-top: 10px;">
+                <h2> Voluntárias Disponíveis</h2>
+                <div class="grid-voluntarias-cards" id="gridVoluntarias">
+                    <!-- Cards dinâmicos -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE DETALHES DA VOLUNTÁRIA -->
+    <div class="modal" id="modalVoluntaria">
+        <div class="modal-conteudo">
+            <span class="fechar-modal" onclick="fecharModal()">&times;</span>
+            <div id="conteudoModal"></div>
+        </div>
+    </div>
+
+    <!-- JS Leaflet (Mini Mapa) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/redeapoio.js"></script>
+
+</body>
+
+</html>

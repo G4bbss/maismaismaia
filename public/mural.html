@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mural da Comunidade - Maia</title>
+    <link rel="icon" href="img/maiaFavicon.png" type="image/png">
+    <link rel="stylesheet" href="./style/mural.css">
+    <script src="/js/acessibilidade.js"></script>
+    <script src="/js/apoio-readonly.js"></script>
+</head>
+
+<body>
+    <div class="app">
+        <!-- ===================== SIDEBAR ===================== -->
+        <aside class="sidebar">
+            <a href="./dashboard.html" class="logo">Ma<span>i</span>a</a>
+            <nav>
+                <a href="./dashboard.html" class="ativo"> Painel</a>
+                <a href="./agendamento.html"> Agendamentos</a>
+                <a href="./diario.html"> Diário Emocional</a>
+                <a href="./mural.html"> Mural</a>
+                <a href="./profissionais.html"> Profissionais</a>
+                <a href="./redeapoio.html"> Rede de Apoio</a>
+                <a href="./telemedicina.html"> Telemedicina</a>
+                <a href="./perfil.html"> Meu Perfil</a>
+            </nav>
+            <span class="rodape-sidebar">© 2026 Maia</span>
+        </aside>
+
+        <!-- ===================== CONTEÚDO ===================== -->
+        <main class="conteudo">
+            <div class="topbar">
+                <div class="saudacao">
+                    <h1 id="saudacaoNome">Mural da Comunidade </h1>
+                    <p>Conecte-se com outras mães, compartilhe experiências e troque acolhimento.</p>
+                </div>
+
+                <div class="conta">
+                    <button class="conta-botao" id="botaoConta">
+                        <span class="avatar-mini" id="avatarMini">?</span>
+                        <span class="nome-mini" id="nomeMini">Minha conta</span>
+                        <span class="icone-engrenagem">⚙️</span>
+                    </button>
+                    <div class="conta-menu" id="menuConta">
+                        <a href="/perfil">✏️ Editar perfil</a>
+                        <button id="botaoSair" class="sair">🚪 Sair</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PUBLICAR RELATO -->
+            <div class="painel-card caixa-postar">
+                <h2>Compartilhe com a comunidade</h2>
+                <p class="subtitulo">Escreva seu relato ou deixe uma mensagem de apoio. Você pode postar de forma
+                    anônima se preferir.</p>
+
+                <textarea id="relatoTexto" placeholder="Escreva o seu relato ou dúvida para a comunidade..."></textarea>
+
+                <div class="postar-opcoes">
+                    <div class="postar-controles">
+                        <select id="tipoUsuario" onchange="verificarTipoUsuario()">
+                            <option value="anonimo">🐱 Postar como Anônima</option>
+                            <option value="nome">👤 Postar com meu nome</option>
+                        </select>
+                        <input type="text" id="nomeUsuario" placeholder="Seu nome" style="display: none;">
+                    </div>
+                    <button class="btn-postar" onclick="enviarRelato()">Publicar no Mural</button>
+                </div>
+            </div>
+
+            <!-- FEED DE RELATOS PUBLICADOS -->
+            <div class="lista-relatos" id="lista-relatos">
+                <!-- Relatos da comunidade preenchidos via JS -->
+            </div>
+        </main>
+    </div>
+
+    <script src="./js/mural.js"></script>
+</body>
+
+</html>
