@@ -1,0 +1,287 @@
+/* =========================================================================
+   RESPONSIVIDADE GLOBAL - PLATAFORMA MAIA CARE
+   Importar por último no <head> de todas as páginas HTML
+   ========================================================================= */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img,
+video,
+iframe,
+canvas {
+    max-width: 100%;
+}
+
+/* Impede zoom automático indesejado no iPhone ao clicar em inputs */
+@media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
+/* =========================================================================
+   1. TELAS INTERNAS COM BARRA LATERAL (.app + .sidebar + .conteudo)
+   ========================================================================= */
+
+/* Botão hambúrguer da sidebar (oculto no desktop, ativado via script.js no mobile) */
+.sidebar-mobile-header {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .app {
+        flex-direction: column !important;
+    }
+
+    /* Transforma a sidebar fixa em barra superior compacta */
+    .sidebar {
+        width: 100% !important;
+        padding: 14px 18px !important;
+        flex-direction: column !important;
+        position: sticky;
+        top: 0;
+        z-index: 950;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .sidebar-mobile-header {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    /* Esconde a logo solta original caso o cabeçalho mobile esteja ativo */
+    .sidebar.com-toggle > .logo {
+        display: none !important;
+    }
+
+    .sidebar-mobile-header .logo {
+        margin-bottom: 0 !important;
+        font-size: 20px !important;
+    }
+
+    .btn-sidebar-toggle {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        color: #ffffff;
+        font-size: 22px;
+        line-height: 1;
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    /* Menu recolhido por padrão no celular */
+    .sidebar.com-toggle nav {
+        display: none !important;
+        flex-direction: column !important;
+        width: 100%;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        gap: 6px !important;
+    }
+
+    /* Menu aberto ao clicar no botão */
+    .sidebar.com-toggle.aberta nav {
+        display: flex !important;
+    }
+
+    .sidebar nav a {
+        width: 100%;
+        padding: 10px 12px !important;
+    }
+
+    .sidebar .rodape-sidebar {
+        display: none !important;
+    }
+
+    /* Área de conteúdo principal */
+    .conteudo {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 20px 16px 90px 16px !important;
+    }
+
+    .titulo-pagina,
+    .saudacao h1 {
+        font-size: 22px !important;
+    }
+
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 12px;
+    }
+
+    .conta {
+        align-self: flex-end;
+    }
+
+    /* Empilha grids principais (Dashboard, Rede de Apoio, Agendamento, etc.) */
+    .grid-principal,
+    .grid-agendamento,
+    .form-linha-dupla,
+    .grid-perfil,
+    .grid-cards,
+    .grid-diario,
+    .grid-telemedicina {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+
+    .grid-voluntarias-cards {
+        grid-template-columns: 1fr !important;
+    }
+
+    .card-secao,
+    .painel-card {
+        padding: 18px 16px !important;
+    }
+
+    .aba-container {
+        flex-wrap: wrap;
+    }
+
+    .btn-aba {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+/* =========================================================================
+   2. TELAS DE LOGIN, CADASTRO E VERIFICAÇÃO (.container + .left-panel)
+   ========================================================================= */
+
+@media (max-width: 768px) {
+    body:has(.container .left-panel) {
+        padding: 16px 12px;
+        align-items: flex-start;
+    }
+
+    .container {
+        width: 100% !important;
+        flex-direction: column !important;
+        margin: 10px auto;
+    }
+
+    .left-panel,
+    .right-panel {
+        min-width: 0 !important;
+        width: 100% !important;
+        padding: 28px 20px !important;
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    .left-panel h1 {
+        font-size: 24px !important;
+    }
+
+    .left-panel p {
+        max-width: 100% !important;
+        font-size: 14px !important;
+    }
+
+    .login-box,
+    .cadastro-box {
+        max-width: 100% !important;
+    }
+
+    .options {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+/* =========================================================================
+   3. MODAIS, WIDGET DA ASSISTENTE VIRTUAL E ACESSIBILIDADE NO CELULAR
+   ========================================================================= */
+
+@media (max-width: 600px) {
+    /* Modais */
+    .modal-conteudo,
+    .modal-content {
+        width: 92% !important;
+        max-width: 92% !important;
+        margin: 18% auto !important;
+        padding: 22px 18px !important;
+    }
+
+    /* Widget da Camila no canto inferior direito */
+    .assistente-widget {
+        right: 12px !important;
+        bottom: 12px !important;
+        left: 12px !important;
+        justify-content: flex-end;
+    }
+
+    .assistente-balao {
+        max-width: calc(100vw - 105px) !important;
+        padding: 12px !important;
+    }
+
+    .assistente-balao h4 {
+        font-size: 14px !important;
+    }
+
+    .assistente-balao p {
+        font-size: 12px !important;
+    }
+
+    .assistente-avatar-box img {
+        width: 54px !important;
+        height: 54px !important;
+    }
+
+    /* Janela do Chat da Camila */
+    .chat-modal-box {
+        right: 10px !important;
+        left: 10px !important;
+        bottom: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+        height: 75vh !important;
+    }
+
+    /* Barra flutuante de acessibilidade mais discreta no mobile */
+    .barra-acessibilidade {
+        top: auto !important;
+        bottom: 90px !important;
+        transform: none !important;
+    }
+
+    .btn-acessibilidade {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 16px !important;
+    }
+
+    /* Check-in emocional do dashboard */
+    .checkin-opcoes button {
+        min-width: calc(33.33% - 8px) !important;
+        padding: 10px 4px !important;
+        font-size: 18px !important;
+    }
+
+    /* Tabelas responsivas */
+    table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
