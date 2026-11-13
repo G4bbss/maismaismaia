@@ -107,8 +107,14 @@ export const verificarCodigo = async (req, res) => {
     );
 
     if (linhas.length > 0) {
+      req.session.usuarioId = linhas[0].id_usuario;
+      req.session.id_usuario = linhas[0].id_usuario;
       req.session.usuarioEmail = email;
-      return res.json({ ok: true, mensagem: "E-mail verificado com sucesso!" });
+      req.session.tipoUsuario = "usuario";
+
+      return req.session.save(() => {
+        return res.json({ ok: true, mensagem: "E-mail verificado com sucesso!" });
+      });
     } else {
       return res.status(401).json({ ok: false, erro: "Código de verificação inválido!" });
     }
@@ -128,7 +134,7 @@ export const googleAuth = async (req, res) => {
 
     let email, nome, foto;
 
-    if (typeof token === 'string' && token.split('.').length === 3) {
+    if (typeof token === "string" && token.split(".").length === 3) {
       const ticket = await googleClient.verifyIdToken({
         idToken: token,
         audience: GOOGLE_CLIENT_ID,
@@ -147,25 +153,56 @@ export const googleAuth = async (req, res) => {
       foto = payload.picture;
     }
 
-    const [linhas] = await pool.execute("SELECT * FROM usuario WHERE email = ?", [email]);
+    if (!email) {
+      return res.status(400).json({ erro: "Não foi possível obter o e-mail da conta Google." });
+    }
+
+    // 1. Verifica se o usuário já existe no MySQL
+    const [linhas] = await pool.execute(
+      "SELECT id_usuario, paciente_nome, foto FROM usuario WHERE email = ?",
+      [email]
+    );
+
+    let idUsuario;
 
     if (linhas.length > 0) {
-      req.session.usuarioEmail = email;
+      // Usuário já cadastrado: recupera o id_usuario existente
+      idUsuario = linhas[0].id_usuario;
+
+      // Atualiza a foto caso ainda esteja vazia no banco
+      if (!linhas[0].foto && foto) {
+        await pool.execute("UPDATE usuario SET foto = ? WHERE id_usuario = ?", [foto, idUsuario]);
+      }
+    } else {
+      // Primeiro acesso com Google: cria o registro automaticamente na tabela usuario
+      const [resultado] = await pool.execute(
+        `INSERT INTO usuario (paciente_nome, email, foto, termos_aceitos)
+         VALUES (?, ?, ?, 1)`,
+        [nome || "Usuária Maia", email, foto || null]
+      );
+      idUsuario = resultado.insertId;
+    }
+
+    // 2. Salva o ID e o E-mail na sessão do servidor
+    req.session.usuarioId = idUsuario;
+    req.session.id_usuario = idUsuario;
+    req.session.usuarioEmail = email;
+    req.session.tipoUsuario = "usuario";
+
+    // Garante que a sessão seja gravada antes de responder ao front-end
+    return req.session.save((err) => {
+      if (err) {
+        console.error("Erro ao salvar sessão:", err);
+        return res.status(500).json({ erro: "Erro ao iniciar sessão." });
+      }
+
       return res.json({
         ok: true,
         cadastrado: true,
+        id_usuario: idUsuario,
         redirect: "/dashboard"
       });
-    } else {
-      return res.json({
-        ok: true,
-        cadastrado: false,
-        redirect: "/cadastro",
-        nome: nome,
-        email: email,
-        foto: foto
-      });
-    }
+    });
 
   } catch (erro) {
     console.error("❌ Erro no Google Auth:", erro.message);

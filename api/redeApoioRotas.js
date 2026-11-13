@@ -65,22 +65,39 @@ function obterProximaDataPorDiaSemana(diaTexto) {
 }
 
 // 🔹 POST /api/chamados -> Criar novo chamado no MySQL
-// 🔹 POST /chamados -> Criar novo chamado no MySQL
+// 🔹 POST /api/chamados -> Criar novo chamado no MySQL
 router.post("/chamados", async (req, res) => {
     try {
         const { id_rede_apoio, endereco_usuario, motivo, data_chamado, horario } = req.body;
 
-        console.log("Teste");
-        
-        // Pega o ID do usuário diretamente da sessão do login
-        const id_usuario = req.session?.usuarioId || req.session?.id_usuario || req.session?.usuario?.id_usuario;
+        // 1. Tenta pegar o ID da sessão
+        let id_usuario =
+            req.session?.usuarioId ||
+            req.session?.id_usuario ||
+            req.session?.usuario?.id_usuario;
+
+        // 2. Fallback: se a sessão tiver apenas o e-mail (ex: sessão antiga), busca o ID no banco
+        if (!id_usuario && req.session?.usuarioEmail) {
+            const [usuarios] = await db.query(
+                "SELECT id_usuario FROM usuario WHERE email = ?",
+                [req.session.usuarioEmail]
+            );
+            if (usuarios.length > 0) {
+                id_usuario = usuarios[0].id_usuario;
+                req.session.usuarioId = id_usuario;
+            }
+        }
 
         if (!id_usuario) {
             return res.status(401).json({ mensagem: "Sessão expirada. Faça login novamente para agendar." });
         }
 
+        if (!id_rede_apoio || !endereco_usuario || !motivo || !horario) {
+            return res.status(400).json({ mensagem: "Preencha endereço, voluntária, motivo e horário." });
+        }
+
         const dataFormatada = (data_chamado && data_chamado.includes("-") && data_chamado.length === 10)
-            ? data_chamado 
+            ? data_chamado
             : obterProximaDataPorDiaSemana(data_chamado);
 
         const sql = `
@@ -102,17 +119,6 @@ router.post("/chamados", async (req, res) => {
     } catch (erro) {
         console.log("Erro ao salvar chamado no MySQL:", erro);
         return res.status(500).json({ mensagem: "Erro ao salvar chamado no banco de dados." });
-    }
-});
-
-// 🔹 GET /api/rede-apoio -> Listar voluntárias cadastradas no MySQL
-router.get("/rede-apoio", async (req, res) => {
-    try {
-        const [linhas] = await db.query("SELECT * FROM rede_apoio");
-        return res.json(linhas);
-    } catch (erro) {
-        console.error("Erro ao buscar rede de apoio:", erro);
-        return res.status(500).json({ mensagem: "Erro ao buscar rede de apoio." });
     }
 });
 

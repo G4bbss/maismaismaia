@@ -529,7 +529,7 @@ async function enviarMensagemAndamento(nomeVoluntaria) {
     } catch (err) {
         carregando.textContent = "Anotado! Em breve confirmamos mais detalhes da nossa visita.";
     }
-    containerMsgs.scrollTop = containerMsgs.scrollHeight;a
+    containerMsgs.scrollTop = containerMsgs.scrollHeight;
 }
 
 function inicializarMapa() {
