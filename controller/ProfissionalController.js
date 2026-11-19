@@ -1,4 +1,4 @@
-import * as ProfissionalModel from "../model/profissional.js";
+import * as ProfissionalModel from "../model/Profissional.js";
 
 export const listarProfissionais = async (req, res) => {
     try {
