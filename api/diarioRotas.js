@@ -1,5 +1,5 @@
 import express from "express";
-import DiarioController from "../controller/diarioController.js";
+import DiarioController from "../controller/DiarioController.js";
 
 const router = express.Router();
 
